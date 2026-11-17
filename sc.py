@@ -7,8 +7,7 @@ import time
 from datetime import datetime, timedelta
 
 # ==================== НАСТРОЙКИ ====================
-import os
-BOT_TOKEN = os.environ.get("BOT_TOKEN")      # новый токен после /revoke
+BOT_TOKEN = os.environ.get("BOT_TOKEN")      # Берется из настроек Bothost
 DB_FILE   = "users.json"
 
 RELEASE     = datetime(2026, 11, 18, 18, 0)
@@ -32,9 +31,11 @@ MESSAGES = [
     "Просто дружеское напоминание: <b>GLEB 6</b> скоро. 18.11.2026, 18:00.\n\n<i>Ждём именно тебя на платформе SK music</i>",
 ]
 
+# 🔥 СООБЩЕНИЕ РЕЛИЗА СО ССЫЛКОЙ
 RELEASE_MSG = (
-    "🎉 <b>GLEB 6 уже здесь!</b>\n\n"
-    "Трек вышел — самое время послушать.\n\n"
+    "🚀 <b>ДОЛГОЖДАННЫЙ ТРЕК GLEB 6 УЖЕ ВЫШЕЛ!!!!</b>\n\n"
+    "СКОРЕЕ ИДИ СЛУШАТЬ в SK Music!!!\n\n"
+    "👉 <a href='https://skmusic-phi.vercel.app'>https://skmusic-phi.vercel.app</a>\n\n"
     "<i>Ждём именно тебя на платформе SK music</i>"
 )
 
@@ -83,7 +84,7 @@ def cmd_start(msg):
     uid = str(msg.chat.id)
 
     if datetime.now() >= RELEASE:
-        bot.send_message(msg.chat.id, RELEASE_MSG, parse_mode="HTML")
+        bot.send_message(msg.chat.id, RELEASE_MSG, parse_mode="HTML", disable_web_page_preview=False)
         return
 
     if uid not in users or not users[uid].get("active"):
@@ -136,7 +137,8 @@ def next_message(u):
 
 def safe_send(chat_id, text):
     try:
-        bot.send_message(chat_id, text, parse_mode="HTML")
+        # disable_web_page_preview=False делает так, чтобы ссылка развернулась красивой плашкой
+        bot.send_message(chat_id, text, parse_mode="HTML", disable_web_page_preview=False)
         return True
     except Exception as e:
         print(f"[send error {chat_id}] {e}")
@@ -149,23 +151,27 @@ def scheduler():
             now = datetime.now()
             changed = False
 
+            # Если до релиза осталось меньше 5 секунд или он только что наступил
+            # Мы используем точную проверку, чтобы поймать 18:00:00
+            is_release_time = now >= RELEASE
+
             for uid, u in list(users.items()):
                 if not u.get("active"):
                     continue
 
-                # релиз наступил
-                if now >= RELEASE and not u.get("released"):
+                # ВЫСТРЕЛ РОВНО В 18:00
+                if is_release_time and not u.get("released"):
                     if safe_send(int(uid), RELEASE_MSG):
                         u["released"] = True
                         u["active"] = False
                         changed = True
                     continue
 
-                # тихие часы
-                if is_quiet(now):
+                # тихие часы (пропускаем, если это момент релиза)
+                if not is_release_time and is_quiet(now):
                     continue
 
-                # пора напомнить
+                # пора напомнить (каждые 4 часа)
                 last = datetime.fromisoformat(u["last_sent"]) if u.get("last_sent") else None
                 if last is None or now - last >= timedelta(hours=INTERVAL_H):
                     if safe_send(int(uid), next_message(u)):
@@ -176,7 +182,9 @@ def scheduler():
                 save(users)
         except Exception as e:
             print(f"[scheduler error] {e}")
-        time.sleep(60)
+        
+        # 🔥 УМНЫЙ ТАЙМЕР: проверяем время каждую секунду, чтобы не пропустить 18:00
+        time.sleep(1)
 
 # ==================== УСТОЙЧИВЫЙ ЗАПУСК ====================
 def run_bot():
