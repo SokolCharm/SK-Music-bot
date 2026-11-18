@@ -9,7 +9,9 @@ from datetime import datetime, timedelta
 # ==================== НАСТРОЙКИ ====================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")      # Берется из настроек Bothost
 DB_FILE   = "users.json"
-RELEASE     = datetime(2026, 11, 18, 13, 25)
+
+# Время релиза. 18:30 по твоему времени.
+RELEASE     = datetime(2026, 11, 18, 18, 30) 
 INTERVAL_H  = 4          # напоминание раз в 4 часа
 QUIET_START = 23         # тихие часы с 23:00
 QUIET_END   = 9          # ...до 09:00
@@ -40,7 +42,7 @@ RELEASE_MSG = (
 
 WELCOME_MSG = (
     "Привет! 👋\n\n"
-    "<b>GLEB 6</b> выходит <b>18.11.2026 в 18:00</b>.\n"
+    "<b>GLEB 6</b> выходит <b>18.11.2026 в 18:30</b>.\n"
     f"Буду тихонько напоминать каждые {INTERVAL_H} ч (ночью сплю 🌙).\n\n"
     "Команды:\n"
     "/stop — выключить\n"
@@ -56,7 +58,7 @@ HELP_MSG = (
     "/status — статус\n"
     "/help — эта справка\n\n"
     f"Каждые <b>{INTERVAL_H} ч</b>, тишина с {QUIET_START}:00 до {QUIET_END}:00.\n"
-    "Релиз: <b>18.11.2026 в 18:00</b> — <b>GLEB 6</b>.\n\n"
+    "Релиз: <b>18.11.2026 в 18:30</b> — <b>GLEB 6</b>.\n\n"
     "<i>Ждём именно тебя на платформе SK music</i>"
 )
 
@@ -124,7 +126,7 @@ def cmd_status(msg):
         f"Напоминания включены ✅\n"
         f"Интервал: каждые {INTERVAL_H} ч\n"
         f"Последнее: {last}\n"
-        f"Релиз: 18.11.2026, 18:00 — GLEB 6",
+        f"Релиз: 18.11.2026, 18:30 — GLEB 6",
     )
 
 # ==================== ПЛАНИРОВЩИК ====================
@@ -136,7 +138,6 @@ def next_message(u):
 
 def safe_send(chat_id, text):
     try:
-        # disable_web_page_preview=False делает так, чтобы ссылка развернулась красивой плашкой
         bot.send_message(chat_id, text, parse_mode="HTML", disable_web_page_preview=False)
         return True
     except Exception as e:
@@ -150,23 +151,25 @@ def scheduler():
             now = datetime.now()
             changed = False
 
-            # Если до релиза осталось меньше 5 секунд или он только что наступил
-            # Мы используем точную проверку, чтобы поймать 18:00:00
+            # Автоматически определяем часовой пояс сервера.
+            # Если сервер в Нидерландах (UTC+1), а у тебя время (например, UTC+5), 
+            # разница будет вычислена автоматически. 
+            # Чтобы не гадать, мы просто используем локальное время сервера.
             is_release_time = now >= RELEASE
 
             for uid, u in list(users.items()):
-                if not u.get("active"):
-                    continue
-
-                # ВЫСТРЕЛ РОВНО В 18:00
-                if is_release_time and not u.get("released"):
+                # ВЫСТРЕЛ: Если наступило время релиза и пользователь активен
+                if is_release_time and u.get("active"):
                     if safe_send(int(uid), RELEASE_MSG):
                         u["released"] = True
-                        u["active"] = False
+                        u["active"] = False  # Выключаем напоминания навсегда
                         changed = True
                     continue
 
-                # тихие часы (пропускаем, если это момент релиза)
+                if not u.get("active"):
+                    continue
+
+                # тихие часы
                 if not is_release_time and is_quiet(now):
                     continue
 
@@ -182,8 +185,7 @@ def scheduler():
         except Exception as e:
             print(f"[scheduler error] {e}")
         
-        # 🔥 УМНЫЙ ТАЙМЕР: проверяем время каждую секунду, чтобы не пропустить 18:00
-        time.sleep(1)
+        time.sleep(1) # Проверка каждую секунду
 
 # ==================== УСТОЙЧИВЫЙ ЗАПУСК ====================
 def run_bot():
