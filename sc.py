@@ -9,8 +9,7 @@ from datetime import datetime, timedelta
 # ==================== НАСТРОЙКИ ====================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")      # Берется из настроек Bothost
 DB_FILE   = "users.json"
-
-RELEASE     = datetime(2026, 11, 18, 0, 1)
+RELEASE     = datetime(2026, 11, 18, 13, 25)
 INTERVAL_H  = 4          # напоминание раз в 4 часа
 QUIET_START = 23         # тихие часы с 23:00
 QUIET_END   = 9          # ...до 09:00
